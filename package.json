@@ -1,0 +1,12 @@
+{
+  "name": "php-exercices",
+  "version": "1.0.0",
+  "description": "Environnement pour exercices PHP",
+  "scripts": {
+    "serve": "php -S localhost:8000 -t public",
+    "dev": "php -S localhost:8000 -t public",
+    "test": "php exercices/test.php"
+  },
+  "devDependencies": {},
+  "type": "module"
+}
