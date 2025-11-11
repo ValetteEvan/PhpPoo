@@ -5,7 +5,7 @@
   "scripts": {
     "serve": "php -S localhost:8000 -t public",
     "dev": "php -S localhost:8000 -t public",
-    "test": "php TP_Combat_Creatures/jeu1.php"
+    "test": "php Formulaire/formulaire_plaintes.php"
   },
   "devDependencies": {},
   "type": "module"
