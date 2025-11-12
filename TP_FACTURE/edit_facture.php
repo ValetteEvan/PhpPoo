@@ -1,10 +1,13 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
+
+$pdo = Database::getInstance();
+$clientManager = new ClientManager($pdo);
+$factureManager = new FactureManager($pdo);
 
 $success = '';
 $error = '';
 
-// Vérifier que l'ID est fourni
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("Location: list_factures.php");
     exit();
@@ -12,19 +15,14 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $id_facture = $_GET['id'];
 
-// Récupérer la liste des clients pour le menu déroulant
 try {
-    $stmt = $pdo->query("SELECT id_client, nom, prenom FROM CLIENTS ORDER BY nom, prenom");
-    $clients = $stmt->fetchAll();
+    $clients = $clientManager->findAll();
 } catch (PDOException $e) {
     die("Erreur lors de la récupération des clients : " . $e->getMessage());
 }
 
-// Récupérer les données de la facture
 try {
-    $stmt = $pdo->prepare("SELECT * FROM FACTURES WHERE id_facture = ?");
-    $stmt->execute([$id_facture]);
-    $facture = $stmt->fetch();
+    $facture = $factureManager->findById($id_facture);
 
     if (!$facture) {
         header("Location: list_factures.php");
@@ -34,7 +32,6 @@ try {
     die("Erreur lors de la récupération de la facture : " . $e->getMessage());
 }
 
-// Traitement de la modification
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id_client = $_POST['id_client'];
     $montant = trim($_POST['montant']);
@@ -49,14 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "La quantité doit être un nombre entier positif.";
     } else {
         try {
-            $stmt = $pdo->prepare("UPDATE FACTURES SET montant = ?, produits = ?, quantite = ?, id_client = ? WHERE id_facture = ?");
-            $stmt->execute([$montant, $produits, $quantite, $id_client, $id_facture]);
+            $facture->setMontant($montant)
+                    ->setProduits($produits)
+                    ->setQuantite($quantite)
+                    ->setIdClient($id_client);
+
+            $factureManager->update($facture);
             $success = "Facture modifiée avec succès !";
 
             // Recharger les données de la facture
-            $stmt = $pdo->prepare("SELECT * FROM FACTURES WHERE id_facture = ?");
-            $stmt->execute([$id_facture]);
-            $facture = $stmt->fetch();
+            $facture = $factureManager->findById($id_facture);
         } catch (PDOException $e) {
             $error = "Erreur lors de la modification de la facture : " . $e->getMessage();
         }
@@ -112,9 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <select class="form-select" id="id_client" name="id_client" required>
                                     <option value="">Sélectionner un client...</option>
                                     <?php foreach ($clients as $client): ?>
-                                        <option value="<?= $client['id_client'] ?>"
-                                                <?= ($facture['id_client'] == $client['id_client']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($client['nom'] . ' ' . $client['prenom']) ?>
+                                        <option value="<?= $client->getId() ?>"
+                                                <?= ($facture->getIdClient() == $client->getId()) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($client->getNomComplet()) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -122,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="mb-3">
                                 <label for="produits" class="form-label">Produits *</label>
-                                <textarea class="form-control" id="produits" name="produits" rows="3" required><?= htmlspecialchars($facture['produits']) ?></textarea>
+                                <textarea class="form-control" id="produits" name="produits" rows="3" required><?= htmlspecialchars($facture->getProduits()) ?></textarea>
                                 <small class="text-muted">Description des produits concernés par la facture</small>
                             </div>
 
@@ -130,13 +129,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="col-md-6 mb-3">
                                     <label for="quantite" class="form-label">Quantité *</label>
                                     <input type="number" class="form-control" id="quantite" name="quantite" min="1"
-                                           value="<?= htmlspecialchars($facture['quantite']) ?>" required>
+                                           value="<?= htmlspecialchars($facture->getQuantite()) ?>" required>
                                 </div>
 
                                 <div class="col-md-6 mb-3">
                                     <label for="montant" class="form-label">Montant (€) *</label>
                                     <input type="number" class="form-control" id="montant" name="montant" step="0.01" min="0.01"
-                                           value="<?= htmlspecialchars($facture['montant']) ?>" required>
+                                           value="<?= htmlspecialchars($facture->getMontant()) ?>" required>
                                 </div>
                             </div>
 

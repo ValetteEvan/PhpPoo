@@ -1,5 +1,8 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
+
+$pdo = Database::getInstance();
+$clientManager = new ClientManager($pdo);
 
 $success = '';
 $error = '';
@@ -14,11 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Tous les champs sont obligatoires.";
     } else {
         try {
-            $stmt = $pdo->prepare("INSERT INTO CLIENTS (nom, prenom, sexe, date_naissance) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$nom, $prenom, $sexe, $date_naissance]);
+            $client = new Client();
+            $client->setNom($nom)
+                   ->setPrenom($prenom)
+                   ->setSexe($sexe)
+                   ->setDateNaissance($date_naissance);
+
+            $clientManager->create($client);
             $success = "Client ajouté avec succès !";
 
-            // Réinitialiser le formulaire
             $_POST = array();
         } catch (PDOException $e) {
             $error = "Erreur lors de l'ajout du client : " . $e->getMessage();

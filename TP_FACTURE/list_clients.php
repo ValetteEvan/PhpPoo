@@ -1,10 +1,11 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
 
-// Récupérer tous les clients
+$pdo = Database::getInstance();
+$clientManager = new ClientManager($pdo);
+
 try {
-    $stmt = $pdo->query("SELECT * FROM CLIENTS ORDER BY nom, prenom");
-    $clients = $stmt->fetchAll();
+    $clients = $clientManager->findAll();
 } catch (PDOException $e) {
     die("Erreur lors de la récupération des clients : " . $e->getMessage());
 }
@@ -56,11 +57,11 @@ try {
                             <tbody>
                                 <?php foreach ($clients as $client): ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($client['id_client']) ?></td>
-                                        <td><?= htmlspecialchars($client['nom']) ?></td>
-                                        <td><?= htmlspecialchars($client['prenom']) ?></td>
-                                        <td><?= $client['sexe'] === 'H' ? 'Homme' : 'Femme' ?></td>
-                                        <td><?= date('d/m/Y', strtotime($client['date_naissance'])) ?></td>
+                                        <td><?= htmlspecialchars($client->getId()) ?></td>
+                                        <td><?= htmlspecialchars($client->getNom()) ?></td>
+                                        <td><?= htmlspecialchars($client->getPrenom()) ?></td>
+                                        <td><?= $client->getSexeLibelle() ?></td>
+                                        <td><?= $client->getDateNaissanceFormatee() ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

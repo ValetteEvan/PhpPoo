@@ -1,13 +1,15 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
+
+$pdo = Database::getInstance();
+$clientManager = new ClientManager($pdo);
+$factureManager = new FactureManager($pdo);
 
 $success = '';
 $error = '';
 
-// Récupérer la liste des clients 
 try {
-    $stmt = $pdo->query("SELECT id_client, nom, prenom FROM CLIENTS ORDER BY nom, prenom");
-    $clients = $stmt->fetchAll();
+    $clients = $clientManager->findAll();
 } catch (PDOException $e) {
     die("Erreur lors de la récupération des clients : " . $e->getMessage());
 }
@@ -26,11 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "La quantité doit être un nombre entier positif.";
     } else {
         try {
-            $stmt = $pdo->prepare("INSERT INTO FACTURES (montant, produits, quantite, id_client) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$montant, $produits, $quantite, $id_client]);
+            $facture = new Facture();
+            $facture->setMontant($montant)
+                    ->setProduits($produits)
+                    ->setQuantite($quantite)
+                    ->setIdClient($id_client);
+
+            $factureManager->create($facture);
             $success = "Facture créée avec succès !";
 
-            // Réinitialiser le formulaire
             $_POST = array();
         } catch (PDOException $e) {
             $error = "Erreur lors de la création de la facture : " . $e->getMessage();
@@ -93,9 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <select class="form-select" id="id_client" name="id_client" required>
                                         <option value="">Sélectionner un client...</option>
                                         <?php foreach ($clients as $client): ?>
-                                            <option value="<?= $client['id_client'] ?>"
-                                                    <?= (isset($_POST['id_client']) && $_POST['id_client'] == $client['id_client']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($client['nom'] . ' ' . $client['prenom']) ?>
+                                            <option value="<?= $client->getId() ?>"
+                                                    <?= (isset($_POST['id_client']) && $_POST['id_client'] == $client->getId()) ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($client->getNomComplet()) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>

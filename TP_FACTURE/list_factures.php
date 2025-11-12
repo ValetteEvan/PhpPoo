@@ -1,64 +1,40 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
+
+$pdo = Database::getInstance();
+$clientManager = new ClientManager($pdo);
+$factureManager = new FactureManager($pdo);
 
 $success = '';
 $error = '';
 
-// Récupérer les clients pour le filtre
 try {
-    $stmtClients = $pdo->query("SELECT id_client, nom, prenom FROM CLIENTS ORDER BY nom, prenom");
-    $clients = $stmtClients->fetchAll();
+    $clients = $clientManager->findAll();
 } catch (PDOException $e) {
     die("Erreur lors de la récupération des clients : " . $e->getMessage());
-}
-
-// Construction de la requête avec filtres
-$sql = "SELECT f.*, c.nom, c.prenom
-        FROM FACTURES f
-        INNER JOIN CLIENTS c ON f.id_client = c.id_client
-        WHERE 1=1";
-
-$params = [];
-
-// Filtre par client
-if (isset($_GET['client']) && !empty($_GET['client'])) {
-    $sql .= " AND f.id_client = ?";
-    $params[] = $_GET['client'];
-}
-
-// Filtre par date de début
-if (isset($_GET['date_debut']) && !empty($_GET['date_debut'])) {
-    $sql .= " AND DATE(f.date_creation) >= ?";
-    $params[] = $_GET['date_debut'];
-}
-
-// Filtre par date de fin
-if (isset($_GET['date_fin']) && !empty($_GET['date_fin'])) {
-    $sql .= " AND DATE(f.date_creation) <= ?";
-    $params[] = $_GET['date_fin'];
-}
-
-$sql .= " ORDER BY f.date_creation DESC";
-
-try {
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $factures = $stmt->fetchAll();
-} catch (PDOException $e) {
-    die("Erreur lors de la récupération des factures : " . $e->getMessage());
 }
 
 // Gestion de la suppression
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     try {
-        $stmtDelete = $pdo->prepare("DELETE FROM FACTURES WHERE id_facture = ?");
-        $stmtDelete->execute([$_GET['delete']]);
+        $factureManager->delete($_GET['delete']);
         $success = "Facture supprimée avec succès !";
         header("Location: list_factures.php");
         exit();
     } catch (PDOException $e) {
         $error = "Erreur lors de la suppression : " . $e->getMessage();
     }
+}
+
+// Récupération des filtres
+$idClient = isset($_GET['client']) && !empty($_GET['client']) ? $_GET['client'] : null;
+$dateDebut = isset($_GET['date_debut']) && !empty($_GET['date_debut']) ? $_GET['date_debut'] : null;
+$dateFin = isset($_GET['date_fin']) && !empty($_GET['date_fin']) ? $_GET['date_fin'] : null;
+
+try {
+    $factures = $factureManager->search($idClient, $dateDebut, $dateFin);
+} catch (PDOException $e) {
+    die("Erreur lors de la récupération des factures : " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
@@ -106,9 +82,9 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
                         <select class="form-select" id="client" name="client">
                             <option value="">Tous les clients</option>
                             <?php foreach ($clients as $client): ?>
-                                <option value="<?= $client['id_client'] ?>"
-                                        <?= (isset($_GET['client']) && $_GET['client'] == $client['id_client']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($client['nom'] . ' ' . $client['prenom']) ?>
+                                <option value="<?= $client->getId() ?>"
+                                        <?= (isset($_GET['client']) && $_GET['client'] == $client->getId()) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($client->getNomComplet()) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -163,15 +139,15 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
                             <tbody>
                                 <?php foreach ($factures as $facture): ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($facture['id_facture']) ?></td>
-                                        <td><?= htmlspecialchars($facture['nom'] . ' ' . $facture['prenom']) ?></td>
-                                        <td><?= htmlspecialchars(substr($facture['produits'], 0, 50)) ?><?= strlen($facture['produits']) > 50 ? '...' : '' ?></td>
-                                        <td><?= htmlspecialchars($facture['quantite']) ?></td>
-                                        <td><?= number_format($facture['montant'], 2, ',', ' ') ?> €</td>
-                                        <td><?= date('d/m/Y H:i', strtotime($facture['date_creation'])) ?></td>
+                                        <td><?= htmlspecialchars($facture->getId()) ?></td>
+                                        <td><?= htmlspecialchars($facture->getNomCompletClient()) ?></td>
+                                        <td><?= htmlspecialchars($facture->getProduitsResume()) ?></td>
+                                        <td><?= htmlspecialchars($facture->getQuantite()) ?></td>
+                                        <td><?= $facture->getMontantFormate() ?></td>
+                                        <td><?= $facture->getDateCreationFormatee() ?></td>
                                         <td>
-                                            <a href="edit_facture.php?id=<?= $facture['id_facture'] ?>" class="btn btn-warning btn-sm">Modifier</a>
-                                            <a href="list_factures.php?delete=<?= $facture['id_facture'] ?>"
+                                            <a href="edit_facture.php?id=<?= $facture->getId() ?>" class="btn btn-warning btn-sm">Modifier</a>
+                                            <a href="list_factures.php?delete=<?= $facture->getId() ?>"
                                                class="btn btn-danger btn-sm"
                                                onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette facture ?')">Supprimer</a>
                                         </td>

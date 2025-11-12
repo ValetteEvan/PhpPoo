@@ -1,24 +1,15 @@
 <?php
-require_once 'config/db.php';
+require_once 'config/autoload.php';
 
-// Récupérer les statistiques
+$pdo = Database::getInstance();
+$statsManager = new StatsManager($pdo);
+$factureManager = new FactureManager($pdo);
+
 try {
-    $stmtClients = $pdo->query("SELECT COUNT(*) as total FROM CLIENTS");
-    $totalClients = $stmtClients->fetch()['total'];
-
-    $stmtFactures = $pdo->query("SELECT COUNT(*) as total FROM FACTURES");
-    $totalFactures = $stmtFactures->fetch()['total'];
-
-    $stmtMontant = $pdo->query("SELECT SUM(montant) as total FROM FACTURES");
-    $totalMontant = $stmtMontant->fetch()['total'] ?? 0;
-
-    // Dernières factures
-    $stmtRecent = $pdo->query("SELECT f.*, c.nom, c.prenom
-                               FROM FACTURES f
-                               INNER JOIN CLIENTS c ON f.id_client = c.id_client
-                               ORDER BY f.date_creation DESC
-                               LIMIT 5");
-    $recentFactures = $stmtRecent->fetchAll();
+    $totalClients = $statsManager->getTotalClients();
+    $totalFactures = $statsManager->getTotalFactures();
+    $totalMontant = $statsManager->getChiffreAffairesFormate();
+    $recentFactures = $factureManager->findRecent(5);
 } catch (PDOException $e) {
     die("Erreur lors de la récupération des statistiques : " . $e->getMessage());
 }
@@ -82,7 +73,7 @@ try {
                 <div class="card text-white bg-warning shadow">
                     <div class="card-body">
                         <h5 class="card-title">Chiffre d'Affaires</h5>
-                        <p class="card-text display-4"><?= number_format($totalMontant, 2, ',', ' ') ?> €</p>
+                        <p class="card-text display-4"><?= $totalMontant ?></p>
                     </div>
                 </div>
             </div>
@@ -108,12 +99,12 @@ try {
                             <tbody>
                                 <?php foreach ($recentFactures as $facture): ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($facture['id_facture']) ?></td>
-                                        <td><?= htmlspecialchars($facture['nom'] . ' ' . $facture['prenom']) ?></td>
-                                        <td><?= number_format($facture['montant'], 2, ',', ' ') ?> €</td>
-                                        <td><?= date('d/m/Y H:i', strtotime($facture['date_creation'])) ?></td>
+                                        <td><?= htmlspecialchars($facture->getId()) ?></td>
+                                        <td><?= htmlspecialchars($facture->getNomCompletClient()) ?></td>
+                                        <td><?= $facture->getMontantFormate() ?></td>
+                                        <td><?= $facture->getDateCreationFormatee() ?></td>
                                         <td>
-                                            <a href="edit_facture.php?id=<?= $facture['id_facture'] ?>" class="btn btn-sm btn-warning">Modifier</a>
+                                            <a href="edit_facture.php?id=<?= $facture->getId() ?>" class="btn btn-sm btn-warning">Modifier</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
